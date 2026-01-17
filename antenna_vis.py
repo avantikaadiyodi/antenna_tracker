@@ -225,6 +225,29 @@ def save_animation(ani, output_dir="./track_plots"):
     print(f"Saving animation to: {filepath}")
     print("This may take a moment...")
     
+    # Configure FFmpeg path explicitly if needed
+    import shutil
+    import subprocess
+    
+    if not shutil.which("ffmpeg"):
+        # Try to locate it using PowerShell (Windows specific)
+        try:
+            # Dynamic lookup that works on Windows without hardcoding paths
+            cmd = ["powershell", "-Command", "Get-Command ffmpeg | Select-Object -ExpandProperty Source"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            path = result.stdout.strip()
+            if path and os.path.exists(path):
+                print(f"FFmpeg found via PowerShell at: {path}")
+                plt.rcParams['animation.ffmpeg_path'] = path
+        except Exception as e:
+            print(f"Could not locate FFmpeg dynamically: {e}")
+
+    # Check if available now
+    if not shutil.which(plt.rcParams['animation.ffmpeg_path'] if 'animation.ffmpeg_path' in plt.rcParams else 'ffmpeg'):
+         print("Error: FFmpeg not found. Please install FFmpeg and ensure it is in your PATH.")
+         print("You can verify this by running 'ffmpeg -version' in your terminal.")
+         return None
+
     # Save the animation
     # Using FFMpegWriter with reasonable settings
     Writer = animation.writers['ffmpeg']
@@ -243,7 +266,7 @@ def main():
     parser.add_argument('--output-dir', type=str, default='./track_plots',
                         help='Output directory for saved videos (default: ./track_plots)')
     args = parser.parse_args()
-
+    args.save = True # for debugging. Uncomment after debugging
     # --- Main Setup ---
 
     # Pre-calculate data for smoother 2D plots limits
