@@ -71,7 +71,7 @@ def rotation_matrix_from_vectors(vec1, vec2): # Find the rotation matrix that al
     rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2)) # Rodrigues formula
     return rotation_matrix
 
-def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines, az_hist, el_hist, range_hist): # Update function for animation
+def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines, az_hist, el_hist, range_hist, angle_artists): # Update function for animation
     # frame: index of the current frame
     # trajectory_time: array of time values for the trajectory
     # ax_3d: 3D axes for the dish and target
@@ -79,6 +79,7 @@ def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines
     # tracking_lines: Lines representing the tracking path
     # data_lines: Lines representing the data history
     # az_hist, el_hist, range_hist: Pre-calculated history arrays
+    # angle_artists: Dictionary to store angle visualization artists
     t = trajectory_time[frame] # Current time in trajectory
     
     # 1. Update Target Position
@@ -135,6 +136,61 @@ def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines
     # Line from antenna to target
     tracking_lines[0].set_data([0, tx], [0, ty])
     tracking_lines[0].set_3d_properties([0, tz])
+    
+    # Clear previous angle indicators
+    for artist in angle_artists['artists']:
+        artist.remove()
+    angle_artists['artists'].clear()
+    
+    # Draw azimuth arc (in XY plane)
+    # Arc from +X axis to projection of target on XY plane
+    if abs(tx) > 0.01 or abs(ty) > 0.01:  # Only draw if not at origin
+        arc_radius = 3
+        theta_vals = np.linspace(0, azimuth * np.pi / 180, 20)
+        arc_x = arc_radius * np.cos(theta_vals)
+        arc_y = arc_radius * np.sin(theta_vals)
+        arc_z = np.zeros_like(theta_vals)
+        az_arc, = ax_3d.plot(arc_x, arc_y, arc_z, 'r-', linewidth=2, alpha=0.7)
+        angle_artists['artists'].append(az_arc)
+        
+        # Azimuth annotation
+        mid_theta = azimuth * np.pi / 360  # Middle of arc
+        text_x = (arc_radius + 1) * np.cos(mid_theta)
+        text_y = (arc_radius + 1) * np.sin(mid_theta)
+        az_text = ax_3d.text(text_x, text_y, 0.5, f'θ={azimuth:.1f}°', color='red', fontsize=9, fontweight='bold')
+        angle_artists['artists'].append(az_text)
+    
+    # Draw elevation arc (in vertical plane containing target)
+    # Arc from XY plane to target
+    if dist > 0.01:
+        arc_radius_el = 4
+        phi_vals = np.linspace(0, elevation * np.pi / 180, 20)
+        # Direction in XY plane
+        xy_dist = np.sqrt(tx**2 + ty**2)
+        if xy_dist > 0.01:
+            dir_x = tx / xy_dist
+            dir_y = ty / xy_dist
+        else:
+            dir_x, dir_y = 1, 0
+        
+        arc_x_el = arc_radius_el * np.cos(phi_vals) * dir_x
+        arc_y_el = arc_radius_el * np.cos(phi_vals) * dir_y
+        arc_z_el = arc_radius_el * np.sin(phi_vals)
+        el_arc, = ax_3d.plot(arc_x_el, arc_y_el, arc_z_el, 'g-', linewidth=2, alpha=0.7)
+        angle_artists['artists'].append(el_arc)
+        
+        # Elevation annotation
+        mid_phi = elevation * np.pi / 360
+        text_x_el = (arc_radius_el + 1) * np.cos(mid_phi) * dir_x
+        text_y_el = (arc_radius_el + 1) * np.cos(mid_phi) * dir_y
+        text_z_el = (arc_radius_el + 1) * np.sin(mid_phi)
+        el_text = ax_3d.text(text_x_el, text_y_el, text_z_el, f'φ={elevation:.1f}°', color='green', fontsize=9, fontweight='bold')
+        angle_artists['artists'].append(el_text)
+    
+    # Draw projection lines to help visualize angles
+    # Projection on XY plane
+    proj_line, = ax_3d.plot([tx, tx], [ty, ty], [0, tz], 'k:', linewidth=1, alpha=0.4)
+    angle_artists['artists'].append(proj_line)
     
     # 3. Update 2D Plots
     # We append data to lists (using a global or simple list in closure)
@@ -215,41 +271,59 @@ def main():
     ax_3d.set_xlim(-15, 15)
     ax_3d.set_ylim(-15, 15)
     ax_3d.set_zlim(0, 25)
-    ax_3d.set_xlabel('X')
-    ax_3d.set_ylabel('Y')
-    ax_3d.set_zlabel('Z')
-    ax_3d.set_title("3D Antenna Tracking")
+    ax_3d.set_xlabel('X (m)')
+    ax_3d.set_ylabel('Y (m)')
+    ax_3d.set_zlabel('Z (m)')
+    ax_3d.set_title("3D Antenna Tracking", fontsize=16, fontweight='bold')
 
     # Initial objects
     target_dot, = ax_3d.plot([], [], [], 'ro', markersize=8, label='Target')
     track_line, = ax_3d.plot([], [], [], 'k--', linewidth=1, label='Tracking Vector')
-    ax_3d.legend()
+    
+    # Add reference lines for clarity
+    ax_3d.plot([0, 0], [0, 0], [0, 25], 'k-', linewidth=0.5, alpha=0.3, label='Antenna Axis')
+    
+    # Enhanced legend
+    ax_3d.legend(loc='upper left', fontsize=9, framealpha=0.9)
 
     # 2D Plots (Right side, stacked)
     ax_az = fig.add_subplot(3, 2, 2)
-    ax_az.set_title("Azimuth (deg)")
+    ax_az.set_title("Azimuth Plot")
+    ax_az.set_xlabel('Time (s)')
+    ax_az.set_ylabel('Azimuth (deg)')
     ax_az.set_xlim(0, 20)
     ax_az.set_ylim(min(az_history)-10, max(az_history)+10)
+    ax_az.grid(True, alpha=0.3)
     line_az, = ax_az.plot([], [], 'r-')
 
     ax_el = fig.add_subplot(3, 2, 4)
-    ax_el.set_title("Elevation (deg)")
+    ax_el.set_title("Elevation Plot")
+    ax_el.set_xlabel('Time (s)')
+    ax_el.set_ylabel('Elevation (deg)')
     ax_el.set_xlim(0, 20)
     ax_el.set_ylim(min(el_history)-10, max(el_history)+10)
+    ax_el.grid(True, alpha=0.3)
     line_el, = ax_el.plot([], [], 'g-')
 
     ax_range = fig.add_subplot(3, 2, 6)
-    ax_range.set_title("Range (m)")
+    ax_range.set_title("Range Plot")
+    ax_range.set_xlabel('Time (s)')
+    ax_range.set_ylabel('Range (m)')
     ax_range.set_xlim(0, 20)
     ax_range.set_ylim(min(range_history)-1, max(range_history)+1)
+    ax_range.grid(True, alpha=0.3)
     line_range, = ax_range.plot([], [], 'b-')
 
     plt.tight_layout()
 
     data_lines = {'az': line_az, 'el': line_el, 'range': line_range}
     tracking_lines = [track_line]
+    
+    # Initialize angle artists dictionary
+    angle_artists = {'artists': []}
 
-    ani = animation.FuncAnimation(fig, update, frames=steps, fargs=(time_array, ax_3d, target_dot, tracking_lines, data_lines, az_history, el_history, range_history), interval=50, blit=False)
+    ani = animation.FuncAnimation(fig, update, frames=steps, fargs=(time_array, ax_3d, target_dot, tracking_lines, data_lines, az_history, el_history, range_history, angle_artists), interval=50, blit=False)
+
 
     # Save animation if requested
     if args.save:
