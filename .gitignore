@@ -1,0 +1,9 @@
+# directories
+track_plots/
+__pycache__/
+
+# output files
+*.png
+
+# text files
+prompts.txt
