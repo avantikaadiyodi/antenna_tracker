@@ -127,7 +127,7 @@ def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines
     
     # Replot Dish
     # Using plot_surface with color/shading
-    ax_3d.plot_surface(rdx, rdy, rdz, color='cyan', alpha=0.6, edgecolors='b', linewidth=0.5)
+    ax_3d.plot_surface(rdx, rdy, rdz, color='yellow', alpha=0.6, edgecolors='y', linewidth=0.5)
     
     # Target
     target_dot.set_data([tx], [ty])
@@ -142,7 +142,7 @@ def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines
         artist.remove()
     angle_artists['artists'].clear()
     
-    # Draw azimuth arc (in XY plane)
+    # Draw azimuth (theta) arc (in XY plane)
     # Arc from +X axis to projection of target on XY plane
     if abs(tx) > 0.01 or abs(ty) > 0.01:  # Only draw if not at origin
         arc_radius = 3
@@ -160,7 +160,7 @@ def update(frame, trajectory_time, ax_3d, target_dot, tracking_lines, data_lines
         az_text = ax_3d.text(text_x, text_y, 0.5, f'θ={azimuth:.1f}°', color='red', fontsize=9, fontweight='bold')
         angle_artists['artists'].append(az_text)
     
-    # Draw elevation arc (in vertical plane containing target)
+    # Draw elevation (phi) arc (in vertical plane containing target)
     # Arc from XY plane to target
     if dist > 0.01:
         arc_radius_el = 4
@@ -225,29 +225,6 @@ def save_animation(ani, output_dir="./track_plots"):
     print(f"Saving animation to: {filepath}")
     print("This may take a moment...")
     
-    # Configure FFmpeg path explicitly if needed
-    import shutil
-    import subprocess
-    
-    if not shutil.which("ffmpeg"):
-        # Try to locate it using PowerShell (Windows specific)
-        try:
-            # Dynamic lookup that works on Windows without hardcoding paths
-            cmd = ["powershell", "-Command", "Get-Command ffmpeg | Select-Object -ExpandProperty Source"]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            path = result.stdout.strip()
-            if path and os.path.exists(path):
-                print(f"FFmpeg found via PowerShell at: {path}")
-                plt.rcParams['animation.ffmpeg_path'] = path
-        except Exception as e:
-            print(f"Could not locate FFmpeg dynamically: {e}")
-
-    # Check if available now
-    if not shutil.which(plt.rcParams['animation.ffmpeg_path'] if 'animation.ffmpeg_path' in plt.rcParams else 'ffmpeg'):
-         print("Error: FFmpeg not found. Please install FFmpeg and ensure it is in your PATH.")
-         print("You can verify this by running 'ffmpeg -version' in your terminal.")
-         return None
-
     # Save the animation
     # Using FFMpegWriter with reasonable settings
     Writer = animation.writers['ffmpeg']
@@ -300,11 +277,11 @@ def main():
     ax_3d.set_title("3D Antenna Tracking", fontsize=16, fontweight='bold')
 
     # Initial objects
-    target_dot, = ax_3d.plot([], [], [], 'ro', markersize=8, label='Target')
-    track_line, = ax_3d.plot([], [], [], 'k--', linewidth=1, label='Tracking Vector')
+    target_dot, = ax_3d.plot([], [], [], 'ro', markersize=8, label='Target') # 'ro' is red circle
+    track_line, = ax_3d.plot([], [], [], 'b-', linewidth=0.75, label='Tracking Vector') # 'b--' is blue dashed line
     
     # Add reference lines for clarity
-    ax_3d.plot([0, 0], [0, 0], [0, 25], 'k-', linewidth=0.5, alpha=0.3, label='Antenna Axis')
+    ax_3d.plot([0, 0], [0, 0], [0, 25], 'k-', linewidth=0.5, alpha=0.3, label='Antenna Axis') # 'k-' is black solid line
     
     # Enhanced legend
     ax_3d.legend(loc='upper left', fontsize=9, framealpha=0.9)
@@ -317,7 +294,7 @@ def main():
     ax_az.set_xlim(0, 20)
     ax_az.set_ylim(min(az_history)-10, max(az_history)+10)
     ax_az.grid(True, alpha=0.3)
-    line_az, = ax_az.plot([], [], 'r-')
+    line_az, = ax_az.plot([], [], 'r-') # 'r-' is red solid line
 
     ax_el = fig.add_subplot(3, 2, 4)
     ax_el.set_title("Elevation Plot")
@@ -326,7 +303,7 @@ def main():
     ax_el.set_xlim(0, 20)
     ax_el.set_ylim(min(el_history)-10, max(el_history)+10)
     ax_el.grid(True, alpha=0.3)
-    line_el, = ax_el.plot([], [], 'g-')
+    line_el, = ax_el.plot([], [], 'g-') # 'g-' is green solid line
 
     ax_range = fig.add_subplot(3, 2, 6)
     ax_range.set_title("Range Plot")
@@ -335,7 +312,7 @@ def main():
     ax_range.set_xlim(0, 20)
     ax_range.set_ylim(min(range_history)-1, max(range_history)+1)
     ax_range.grid(True, alpha=0.3)
-    line_range, = ax_range.plot([], [], 'b-')
+    line_range, = ax_range.plot([], [], 'b-') # 'b-' is blue solid line 
 
     plt.tight_layout()
 
